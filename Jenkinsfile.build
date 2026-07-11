@@ -78,11 +78,11 @@ pipeline {
             steps {
                 echo 'Packaging Spring Boot application'
                 sh 'mvn -B package -DskipTests'
-                stash includes: "${env.PROJECT_DIR}/target/**, ${env.PROJECT_DIR}/src/**", name: 'build-artifacts'
+                stash includes: "target/**, src/**", name: 'build-artifacts'
             }
             post {
                 success {
-                    archiveArtifacts artifacts: "${env.PROJECT_DIR}/target/*.jar", followSymlinks: false, onlyIfSuccessful: true
+                    archiveArtifacts artifacts: "target/*.jar", followSymlinks: false, onlyIfSuccessful: true
                 }
             }
         }
