@@ -112,7 +112,7 @@ pipeline {
                 unstash 'build-artifacts'
                 script {
                     def jarFile = sh(
-                        script: "ls ${env.PROJECT_DIR}/target/*.jar | head -1",
+                        script: "ls target/*.jar | head -1",
                         returnStdout: true
                     ).trim()
 
