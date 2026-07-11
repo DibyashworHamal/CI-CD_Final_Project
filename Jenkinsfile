@@ -5,7 +5,6 @@ pipeline {
         REGISTRY = 'harbor.registry.local'
         IMAGE_NAME = 'ebs-app'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
-        PROJECT_DIR = 'MajorProject/Complete_CICD/'
         SCANNER_HOME = tool 'sonarscanner8.1'
     }
 
@@ -26,10 +25,8 @@ pipeline {
                 }
             }
             steps {
-                dir(env.PROJECT_DIR) {
-                    echo 'Compiling Spring Boot application'
-                    sh 'mvn -B clean compile'
-                }
+                echo 'Compiling Spring Boot application'
+                sh 'mvn -B clean compile'
             }
         }
 
@@ -42,10 +39,8 @@ pipeline {
                 }
              }
              steps {
-                 dir(env.PROJECT_DIR) {
-                 sh 'mvn -f pom.xml checkstyle:check -Dcheckstyle.failOnViolation=false'
-                }
-            }
+                sh 'mvn -f pom.xml checkstyle:check -Dcheckstyle.failOnViolation=false'
+             }
              post {
                  always {
                     // Publish the HTML report in Jenkins UI
@@ -67,10 +62,8 @@ pipeline {
                 }
             }
             steps {
-                dir(env.PROJECT_DIR) {
-                    echo 'Running Maven tests'
-                    sh 'mvn -B test'
-                }
+                echo 'Running Maven tests'
+                sh 'mvn -B test'
             }
         }
 
@@ -83,10 +76,8 @@ pipeline {
                 }
             }
             steps {
-                dir(env.PROJECT_DIR) {
-                    echo 'Packaging Spring Boot application'
-                    sh 'mvn -B package -DskipTests'
-                }
+                echo 'Packaging Spring Boot application'
+                sh 'mvn -B package -DskipTests'
                 stash includes: "${env.PROJECT_DIR}/target/**, ${env.PROJECT_DIR}/src/**", name: 'build-artifacts'
             }
             post {
@@ -100,19 +91,17 @@ pipeline {
             agent { label 'dkr-vm' }
             steps {
                 unstash 'build-artifacts'
-                dir(env.PROJECT_DIR) {
-                    withSonarQubeEnv('sonarqube-server') {
-                        sh """${SCANNER_HOME}/bin/sonar-scanner \
-                            -Dsonar.projectKey=ebs-app \
-                            -Dsonar.projectName='Event Booking System' \
-                            -Dsonar.projectVersion=${env.BUILD_NUMBER} \
-                            -Dsonar.sources=src/main/java \
-                            -Dsonar.tests=src/test/java \
-                            -Dsonar.java.binaries=target/classes \
-                            -Dsonar.junit.reportPaths=target/surefire-reports/ \
-                            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
-                            -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml"""
-                    }
+                withSonarQubeEnv('sonarqube-server') {
+                    sh """${SCANNER_HOME}/bin/sonar-scanner \
+                        -Dsonar.projectKey=ebs-app \
+                        -Dsonar.projectName='Event Booking System' \
+                        -Dsonar.projectVersion=${env.BUILD_NUMBER} \
+                        -Dsonar.sources=src/main/java \
+                        -Dsonar.tests=src/test/java \
+                        -Dsonar.java.binaries=target/classes \
+                        -Dsonar.junit.reportPaths=target/surefire-reports/ \
+                        -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                        -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml"""
                 }
             }
         }
@@ -149,31 +138,25 @@ pipeline {
         stage('Create Docker Image') {
             agent { label 'dkr-vm' }
             steps {
-                dir(env.PROJECT_DIR) {
-                    echo 'Creating Docker Image'
-                    sh "docker image build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
-                }
+                echo 'Creating Docker Image'
+                sh "docker image build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
             }
         }
 
         stage('Tag Docker Image') {
             agent { label 'dkr-vm' }
             steps {
-                dir(env.PROJECT_DIR) {
-                    echo 'Tagging an Image'
-                    sh "docker image tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.REGISTRY}/devops-project/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-                }
+                echo 'Tagging an Image'
+                sh "docker image tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.REGISTRY}/devops-project/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
             }
         }
 
         stage('Push Docker Image') {
             agent { label 'dkr-vm' }
             steps {
-                dir(env.PROJECT_DIR) {
-                    echo 'Logging into Harbor Registry and pushing image'
-                    withDockerRegistry([credentialsId: 'harbor-password', url: "https://${env.REGISTRY}"]) {
-                        sh "docker image push ${env.REGISTRY}/devops-project/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-                    }
+                echo 'Logging into Harbor Registry and pushing image'
+                withDockerRegistry([credentialsId: 'harbor-password', url: "https://${env.REGISTRY}"]) {
+                    sh "docker image push ${env.REGISTRY}/devops-project/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
                 }
             }
         }
