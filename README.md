@@ -1,1 +1,2 @@
 # CI-CD_Final_Project
+### I am a DevOps Engineer and this is my final project for the DevOps Training. The project is a CI/CD pipeline for a sample application using Jenkins, Docker, Harbor, Prometheus, grafana, OpenTofu, Ansible, sonarqube, and Nexus Repository Manager.
