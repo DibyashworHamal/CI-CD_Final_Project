@@ -1,0 +1,156 @@
+pipeline {
+    agent any
+
+    environment {
+        REGISTRY = 'harbor.registry.local'
+        IMAGE_NAME = 'ebs-app'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        SCANNER_HOME = tool 'sonarscanner8.1'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Checking out source'
+                checkout scm
+            }
+        }
+
+        stage('Compile') {
+            agent {
+                docker {
+                    image 'maven:3.9-eclipse-temurin-21'
+                    label 'dkr-vm'
+                    args "-v ${env.HOME}/.m2:/root/.m2" 
+                }
+            }
+            steps {
+                echo 'Compiling Spring Boot application'
+                sh 'mvn -B clean compile'
+            }
+        }
+
+        stage('Checkstyle Analysis') {
+             agent {
+                 docker {
+                    image 'maven:3.9-eclipse-temurin-21'
+                    label 'dkr-vm'
+                    args "-v ${env.HOME}/.m2:/root/.m2"
+                }
+             }
+             steps {
+                sh 'mvn -f pom.xml checkstyle:check -Dcheckstyle.failOnViolation=false'
+             }
+             post {
+                 always {
+                    // Publish the HTML report in Jenkins UI
+                    publishHTML(target: [
+                    reportDir: "${env.PROJECT_DIR}/target/site",
+                    reportFiles: 'checkstyle.html',
+                    reportName: 'Checkstyle Report'
+                    ])
+                }
+            }
+        }
+
+        stage('Test') {
+            agent {
+                docker {
+                    image 'maven:3.9-eclipse-temurin-21'
+                    label 'dkr-vm'
+                    args "-v ${env.HOME}/.m2:/root/.m2"
+                }
+            }
+            steps {
+                echo 'Running Maven tests'
+                sh 'mvn -B test'
+            }
+        }
+
+        stage('Package') {
+            agent {
+                docker {
+                    image 'maven:3.9-eclipse-temurin-21'
+                    label 'dkr-vm'
+                    args "-v ${env.HOME}/.m2:/root/.m2"
+                }
+            }
+            steps {
+                echo 'Packaging Spring Boot application'
+                sh 'mvn -B package -DskipTests'
+                stash includes: "${env.PROJECT_DIR}/target/**, ${env.PROJECT_DIR}/src/**", name: 'build-artifacts'
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: "${env.PROJECT_DIR}/target/*.jar", followSymlinks: false, onlyIfSuccessful: true
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            agent { label 'dkr-vm' }
+            steps {
+                unstash 'build-artifacts'
+                withSonarQubeEnv('sonarqube-server') {
+                    sh """${SCANNER_HOME}/bin/sonar-scanner \
+                        -Dsonar.projectKey=ebs-app \
+                        -Dsonar.projectName='Event Booking System' \
+                        -Dsonar.projectVersion=${env.BUILD_NUMBER} \
+                        -Dsonar.sources=src/main/java \
+                        -Dsonar.tests=src/test/java \
+                        -Dsonar.java.binaries=target/classes \
+                        -Dsonar.junit.reportPaths=target/surefire-reports/ \
+                        -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                        -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml"""
+                }
+            }
+        }
+
+        stage("UploadArtifact") {
+            agent { label 'dkr-vm' }
+            steps {
+                unstash 'build-artifacts'
+                script {
+                    def jarFile = sh(
+                        script: "ls ${env.PROJECT_DIR}/target/*.jar | head -1",
+                        returnStdout: true
+                    ).trim()
+
+                    nexusArtifactUploader(
+                        nexusVersion: 'nexus3',
+                        protocol: 'http',
+                        nexusUrl: '18.214.100.243:8081',
+                        groupId: 'QA',
+                        version: "${env.BUILD_NUMBER}-${env.BUILD_TIMESTAMP}",
+                        repository: 'ebs-app-repo',
+                        credentialsId: 'awsNexus-artifactory',
+                        artifacts: [
+                            [artifactId: 'ebs-app',
+                            classifier: '',
+                            file: jarFile, 
+                            type: 'jar']
+                        ]
+                    )
+                }
+            }
+        }
+    }
+    post {
+        success {
+            mail bcc: '', body: """Hello Team,
+            BUILD #${env.BUILD_NUMBER} of Event Booking System was successful.
+            You can find the build details at: ${env.BUILD_URL}
+            Regards,
+            DevOps Team""", cc: '', from: '', replyTo: '', subject: "Build #${env.BUILD_NUMBER} Successful - Event Booking System",
+            to: 'hamaldivyashwor2057@gmail.com'
+        }
+        failure {
+            mail bcc: '', body: """Hello Team,
+            BUILD #${env.BUILD_NUMBER} of Event Booking System has failed.
+            Please check the build details at: ${env.BUILD_URL}
+            Regards,
+            DevOps Team""", cc: '', from: '', replyTo: '', subject: "Build #${env.BUILD_NUMBER} Failed - Event Booking System",
+            to: 'hamaldivyashwor2057@gmail.com'
+        }
+    }
+}
