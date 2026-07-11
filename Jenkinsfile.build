@@ -45,7 +45,7 @@ pipeline {
                  always {
                     // Publish the HTML report in Jenkins UI
                     publishHTML(target: [
-                    reportDir: "${env.PROJECT_DIR}/target/site",
+                    reportDir: "target/site",
                     reportFiles: 'checkstyle.html',
                     reportName: 'Checkstyle Report'
                     ])
