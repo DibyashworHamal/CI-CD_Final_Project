@@ -137,6 +137,10 @@ pipeline {
     }
     post {
         success {
+            // THE MAGIC LINK: Trigger the next pipeline!
+            echo "Build successful. Triggering the Deploy pipeline..."
+            build job: 'ebs-deploy-pipeline', wait: false
+            
             mail bcc: '', body: """Hello Team,
             BUILD #${env.BUILD_NUMBER} of Event Booking System was successful.
             You can find the build details at: ${env.BUILD_URL}

@@ -1,0 +1,98 @@
+pipeline {
+    agent { label 'dkr-vm' }
+
+    environment {
+        REGISTRY = 'harbor.registry.local'
+        IMAGE_NAME = 'ebs-app'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        NEXUS_URL = "http://18.214.100.243:8081/repository/ebs-app-repo/com/eventbooking/ebs-app/${env.BUILD_NUMBER}/ebs-app-${env.BUILD_NUMBER}.jar"
+    }
+
+    stages {
+        stage('Download Artifact') {
+            steps {
+                echo 'Downloading the approved .jar file from Nexus...'
+                withCredentials([usernamePassword(credentialsId: 'awsNexus-artifactory', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                    sh "wget --user=${NEXUS_USER} --password=${NEXUS_PASS} -O ebs-app.jar ${NEXUS_URL}"
+                }
+            }
+        }
+
+        stage('Create Docker Image') {
+            steps {
+                echo 'Creating Docker Image'
+                sh "docker image build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+            }
+        }
+
+        stage('Tag Docker Image') {
+            steps {
+                echo 'Tagging an Image'
+                sh "docker image tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.REGISTRY}/devops-project/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                echo 'Logging into Harbor Registry and pushing image'
+                withDockerRegistry([credentialsId: 'harbor-password', url: "https://${env.REGISTRY}"]) {
+                    sh "docker image push ${env.REGISTRY}/devops-project/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Deploy to production environment') {
+            steps {
+                timeout(time: 1, unit: 'HOURS') {
+                    input message: 'Approve PRODUCTION Deployment?'
+                }
+                echo 'Running app on production environment'
+                sh "sudo chown -R \$(whoami) \$WORKSPACE || true"
+                sh "sudo chown -R \$(whoami) \${WORKSPACE}@tmp || true"
+                dir(env.PROJECT_DIR) {
+                    withCredentials([file(credentialsId: 'prod-env-file', variable: 'SECRET_ENV_FILE')]) {
+                        sh """
+                        # 0. Forcefully remove any leftover read-only .env file from previous failed builds
+                        rm -f .env
+
+                        # 1. Use 'cat' instead of 'cp' so the new .env file has write permissions
+                        cat \$SECRET_ENV_FILE > .env
+
+                        # 2. Dynamically append our image tags to the bottom of the file securely
+                        echo "REGISTRY=${env.REGISTRY}" >> .env
+                        echo "IMAGE_NAME=${env.IMAGE_NAME}" >> .env
+                        echo "IMAGE_TAG=${env.IMAGE_TAG}" >> .env
+
+                        # 3. Deploy securely!
+                        docker compose down || true
+                        docker compose up -d
+                        
+                        # 4. Delete the .env file after deployment so it doesn't sit around
+                        rm -f .env
+                        """
+                    }
+                }
+            }   
+        }
+    }
+
+    post {
+        success {
+            mail bcc: '', body: """Hello Team,
+            BUILD #${env.BUILD_NUMBER} of Event Booking System was successful.
+            You can find the build details at: ${env.BUILD_URL}
+            Regards,
+            DevOps Team""", cc: '', from: '', replyTo: '', subject: "Build #${env.BUILD_NUMBER} Successful - Event Booking System",
+            to: 'hamaldivyashwor2057@gmail.com'
+        }
+        failure {
+            mail bcc: '', body: """Hello Team,
+            BUILD #${env.BUILD_NUMBER} of Event Booking System has failed.
+            Please check the build details at: ${env.BUILD_URL}
+            Regards,
+            DevOps Team""", cc: '', from: '', replyTo: '', subject: "Build #${env.BUILD_NUMBER} Failed - Event Booking System",
+            to: 'hamaldivyashwor2057@gmail.com'
+        }
+    }
+
+}
