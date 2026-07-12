@@ -11,10 +11,11 @@ services:
     networks:
       - ebs-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
-      interval: 30s
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 15s
       timeout: 10s
       retries: 5
+      start_period: 40s 
 
   backend-api:
     image: ${REGISTRY}/cicd-final-project/${IMAGE_NAME}:${IMAGE_TAG}
