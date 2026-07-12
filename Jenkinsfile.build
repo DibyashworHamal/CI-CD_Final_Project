@@ -119,7 +119,7 @@ pipeline {
                     nexusArtifactUploader(
                         nexusVersion: 'nexus3',
                         protocol: 'http',
-                        nexusUrl: '18.214.100.243:8081',
+                        nexusUrl: '172.31.27.168:8081',
                         groupId: 'QA',
                         version: "${env.BUILD_NUMBER}-${env.BUILD_TIMESTAMP}",
                         repository: 'ebs-app-repo',
