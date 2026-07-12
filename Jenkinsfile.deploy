@@ -11,41 +11,38 @@ pipeline {
         IMAGE_TAG = "${params.UPSTREAM_BUILD_NUMBER}"
         NEXUS_URL = "http://34.207.235.78:8081/repository/ebs-app-repo/QA/ebs-app/${params.UPSTREAM_BUILD_NUMBER}/ebs-app-${params.UPSTREAM_BUILD_NUMBER}.jar"
     }
+
     stages {
         stage('Checkout Code') {
             steps {
-                echo 'Checking out source'
+                echo 'Checking out source code (We need the Dockerfile and docker-compose.yml!)'
                 checkout scm
             }
         }
 
-        stage('Download Artifact') {
+        stage('Download Artifact from Nexus') {
             steps {
-                echo 'Downloading the approved .jar file from Nexus...'
+                echo "Downloading ebs-app-${params.UPSTREAM_BUILD_NUMBER}.jar from Nexus..."
+                
                 withCredentials([usernamePassword(credentialsId: 'awsNexus-artifactory', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                    sh """
                     mkdir -p target
-                    wget --user=${NEXUS_USER} --password=${NEXUS_PASS} -O target/ebs-app.jar ${NEXUS_URL}
+                    curl -v -u "\${NEXUS_USER}:\${NEXUS_PASS}" -o target/ebs-app.jar ${NEXUS_URL}
+                    """
                 }
             }
         }
 
-        stage('Create Docker Image') {
+        stage('Build & Tag Docker Image') {
             steps {
-                echo 'Creating Docker Image'
-                sh "docker image build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+                echo 'Building Docker Image...'
+                sh "docker image build -t ${env.REGISTRY}/cicd-final-project/${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
             }
         }
 
-        stage('Tag Docker Image') {
+        stage('Push to Harbor Registry') {
             steps {
-                echo 'Tagging an Image'
-                sh "docker image tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.REGISTRY}/cicd-final-project/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-            }
-        }
-
-        stage('Push Docker Image') {
-            steps {
-                echo 'Logging into Harbor Registry and pushing image'
+                echo 'Logging into Harbor Registry and pushing image...'
                 withDockerRegistry([credentialsId: 'harbor-password', url: "https://${env.REGISTRY}"]) {
                     sh "docker image push ${env.REGISTRY}/cicd-final-project/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
                 }
@@ -60,27 +57,24 @@ pipeline {
                 echo 'Running app on production environment'
                 sh "sudo chown -R \$(whoami) \$WORKSPACE || true"
                 sh "sudo chown -R \$(whoami) \${WORKSPACE}@tmp || true"
-                    withCredentials([file(credentialsId: 'prod-env-file', variable: 'SECRET_ENV_FILE')]) {
-                        sh """
-                        # 0. Forcefully remove any leftover read-only .env file from previous failed builds
-                        rm -f .env
-
-                        # 1. Use 'cat' instead of 'cp' so the new .env file has write permissions
-                        cat \$SECRET_ENV_FILE > .env
-
-                        # 2. Dynamically append our image tags to the bottom of the file securely
-                        echo "REGISTRY=${env.REGISTRY}" >> .env
-                        echo "IMAGE_NAME=${env.IMAGE_NAME}" >> .env
-                        echo "IMAGE_TAG=${env.IMAGE_TAG}" >> .env
-
-                        # 3. Deploy securely!
-                        docker compose down || true
-                        docker compose up -d
-                        
-                        # 4. Delete the .env file after deployment so it doesn't sit around
-                        rm -f .env
-                        """
-                    }
+                
+                withCredentials([file(credentialsId: 'prod-env-file', variable: 'SECRET_ENV_FILE')]) {
+                    sh """
+                    rm -f .env
+                    cat \$SECRET_ENV_FILE > .env
+                    
+                    # Injecting the exact variables our docker-compose.yml needs
+                    echo "REGISTRY=${env.REGISTRY}" >> .env
+                    echo "IMAGE_NAME=${env.IMAGE_NAME}" >> .env
+                    echo "IMAGE_TAG=${env.IMAGE_TAG}" >> .env
+                    
+                    # Deploying!
+                    docker compose down || true
+                    docker compose up -d
+                    
+                    rm -f .env
+                    """
+                }
             }   
         }
     }
