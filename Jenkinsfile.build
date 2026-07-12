@@ -39,7 +39,7 @@ pipeline {
                 }
              }
              steps {
-                sh 'mvn -f pom.xml checkstyle:check -Dcheckstyle.failOnViolation=false'
+                sh 'mvn -B site checkstyle:check -Dcheckstyle.failOnViolation=false'
              }
              post {
                  always {
