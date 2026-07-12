@@ -111,21 +111,17 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    nexusArtifactUploader(
-                        nexusVersion: 'nexus3',
-                        protocol: 'http',
-                        nexusUrl: '34.207.235.78:8081',
-                        groupId: 'QA',
-                        version: "${env.BUILD_NUMBER}-${env.BUILD_TIMESTAMP}",
-                        repository: 'ebs-app-repo',
-                        credentialsId: 'awsNexus-artifactory',
-                        artifacts: [
-                            [artifactId: 'ebs-app',
-                            classifier: '',
-                            file: jarFile, 
-                            type: 'jar']
-                        ]
-                    )
+                    echo "Found JAR file: ${jarFile}"
+                    echo "Uploading securely to Nexus AWS Server using cURL..."
+
+                    withCredentials([usernamePassword(credentialsId: 'awsNexus-artifactory', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                        // Using curl bypasses the plugin bug and guarantees a stable upload
+                        sh """
+                        curl -v -u "\${NEXUS_USER}:\${NEXUS_PASS}" \
+                             --upload-file ${jarFile} \
+                             http://34.207.235.78:8081/repository/ebs-app-repo/QA/ebs-app/${env.BUILD_NUMBER}/ebs-app-${env.BUILD_NUMBER}.jar
+                        """
+                    }
                 }
             }
         }
