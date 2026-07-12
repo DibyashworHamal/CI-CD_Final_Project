@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent { label 'dkr-vm' }
 
     environment {
         REGISTRY = 'harbor.registry.local'
@@ -20,7 +20,7 @@ pipeline {
             agent {
                 docker {
                     image 'maven:3.9-eclipse-temurin-21'
-                    label 'dkr-vm'
+                    reuseNode true
                     args "-v ${env.HOME}/.m2:/root/.m2" 
                 }
             }
@@ -34,7 +34,7 @@ pipeline {
              agent {
                  docker {
                     image 'maven:3.9-eclipse-temurin-21'
-                    label 'dkr-vm'
+                    reuseNode true
                     args "-v ${env.HOME}/.m2:/root/.m2"
                 }
              }
@@ -57,7 +57,7 @@ pipeline {
             agent {
                 docker {
                     image 'maven:3.9-eclipse-temurin-21'
-                    label 'dkr-vm'
+                    reuseNode true
                     args "-v ${env.HOME}/.m2:/root/.m2"
                 }
             }
@@ -71,14 +71,13 @@ pipeline {
             agent {
                 docker {
                     image 'maven:3.9-eclipse-temurin-21'
-                    label 'dkr-vm'
+                    reuseNode true
                     args "-v ${env.HOME}/.m2:/root/.m2"
                 }
             }
             steps {
                 echo 'Packaging Spring Boot application'
                 sh 'mvn -B package -DskipTests'
-                stash includes: "target/**, src/**", name: 'build-artifacts'
             }
             post {
                 success {
@@ -88,9 +87,7 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-            agent { label 'dkr-vm' }
             steps {
-                unstash 'build-artifacts'
                 withSonarQubeEnv('sonarqube-server') {
                     sh """${SCANNER_HOME}/bin/sonar-scanner \
                         -Dsonar.projectKey=ebs-app \
@@ -107,9 +104,7 @@ pipeline {
         }
 
         stage("UploadArtifact") {
-            agent { label 'dkr-vm' }
             steps {
-                unstash 'build-artifacts'
                 script {
                     def jarFile = sh(
                         script: "ls target/*.jar | head -1",
