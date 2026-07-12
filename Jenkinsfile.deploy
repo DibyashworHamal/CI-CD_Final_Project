@@ -1,19 +1,30 @@
 pipeline {
     agent { label 'dkr-vm' }
 
+    parameters {
+        string(name: 'UPSTREAM_BUILD_NUMBER', defaultValue: 'latest', description: 'Build number from Upstream CI')
+    }
+
     environment {
         REGISTRY = 'harbor.registry.local'
         IMAGE_NAME = 'ebs-app'
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
-        NEXUS_URL = "http://18.214.100.243:8081/repository/ebs-app-repo/com/eventbooking/ebs-app/${env.BUILD_NUMBER}/ebs-app-${env.BUILD_NUMBER}.jar"
+        IMAGE_TAG = "${params.UPSTREAM_BUILD_NUMBER}"
+        NEXUS_URL = "http://34.207.235.78:8081/repository/ebs-app-repo/QA/ebs-app/${params.UPSTREAM_BUILD_NUMBER}/ebs-app-${params.UPSTREAM_BUILD_NUMBER}.jar"
     }
-
     stages {
+        stage('Checkout Code') {
+            steps {
+                echo 'Checking out source'
+                checkout scm
+            }
+        }
+
         stage('Download Artifact') {
             steps {
                 echo 'Downloading the approved .jar file from Nexus...'
                 withCredentials([usernamePassword(credentialsId: 'awsNexus-artifactory', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-                    sh "wget --user=${NEXUS_USER} --password=${NEXUS_PASS} -O ebs-app.jar ${NEXUS_URL}"
+                    mkdir -p target
+                    wget --user=${NEXUS_USER} --password=${NEXUS_PASS} -O target/ebs-app.jar ${NEXUS_URL}
                 }
             }
         }
@@ -28,7 +39,7 @@ pipeline {
         stage('Tag Docker Image') {
             steps {
                 echo 'Tagging an Image'
-                sh "docker image tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.REGISTRY}/devops-project/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                sh "docker image tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.REGISTRY}/cicd-final-project/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
             }
         }
 
@@ -36,7 +47,7 @@ pipeline {
             steps {
                 echo 'Logging into Harbor Registry and pushing image'
                 withDockerRegistry([credentialsId: 'harbor-password', url: "https://${env.REGISTRY}"]) {
-                    sh "docker image push ${env.REGISTRY}/devops-project/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                    sh "docker image push ${env.REGISTRY}/cicd-final-project/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
                 }
             }
         }
@@ -49,7 +60,6 @@ pipeline {
                 echo 'Running app on production environment'
                 sh "sudo chown -R \$(whoami) \$WORKSPACE || true"
                 sh "sudo chown -R \$(whoami) \${WORKSPACE}@tmp || true"
-                dir(env.PROJECT_DIR) {
                     withCredentials([file(credentialsId: 'prod-env-file', variable: 'SECRET_ENV_FILE')]) {
                         sh """
                         # 0. Forcefully remove any leftover read-only .env file from previous failed builds
@@ -71,7 +81,6 @@ pipeline {
                         rm -f .env
                         """
                     }
-                }
             }   
         }
     }

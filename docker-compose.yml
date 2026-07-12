@@ -11,16 +11,17 @@ services:
     networks:
       - ebs-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 30s
       timeout: 10s
       retries: 5
 
   backend-api:
-    image: ${REGISTRY}/devops-project/${IMAGE_NAME}:${IMAGE_TAG}
+    image: ${REGISTRY}/cicd-final-project/${IMAGE_NAME}:${IMAGE_TAG}
     restart: unless-stopped
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     env_file:
       - .env
     environment:
@@ -33,10 +34,10 @@ services:
     networks:
       - ebs-network
     healthcheck:
-      test: ["CMD", "sh", "-c", "netstat -lnt | grep -q ':${CONTAINER_PORT} '"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:${CONTAINER_PORT}/api/auth/login"]
       interval: 30s
       timeout: 5s
-      start_period: 10s
+      start_period: 15s
       retries: 3
 
 volumes:

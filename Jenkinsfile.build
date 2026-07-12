@@ -128,9 +128,11 @@ pipeline {
     }
     post {
         success {
-            // THE MAGIC LINK: Trigger the next pipeline!
-            echo "Build successful. Triggering the Deploy pipeline..."
-            build job: 'ebs-deploy-pipeline', wait: false
+            echo "✅ SUCCESS! Triggering Deploy Pipeline..."
+            
+            build job: 'ebs-deploy-pipeline', parameters: [
+                string(name: 'UPSTREAM_BUILD_NUMBER', value: "${env.BUILD_NUMBER}")
+            ], wait: false
             
             mail bcc: '', body: """Hello Team,
             BUILD #${env.BUILD_NUMBER} of Event Booking System was successful.
