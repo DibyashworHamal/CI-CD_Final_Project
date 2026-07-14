@@ -119,7 +119,7 @@ pipeline {
                         sh """
                         curl -v -u "\${NEXUS_USER}:\${NEXUS_PASS}" \
                              --upload-file ${jarFile} \
-                             http://34.207.235.78:8081/repository/ebs-app-repo/QA/ebs-app/${env.BUILD_NUMBER}/ebs-app-${env.BUILD_NUMBER}.jar
+                             http://52.200.248.107:8081/repository/ebs-app-repo/QA/ebs-app/${env.BUILD_NUMBER}/ebs-app-${env.BUILD_NUMBER}.jar
                         """
                     }
                 }

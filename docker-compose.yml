@@ -35,10 +35,10 @@ services:
     networks:
       - ebs-network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:${CONTAINER_PORT}/api/auth/login"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:${CONTAINER_PORT}/actuator/health"]
       interval: 30s
       timeout: 5s
-      start_period: 15s
+      start_period: 60s
       retries: 3
 
 volumes:

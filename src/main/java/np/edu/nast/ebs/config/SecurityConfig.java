@@ -66,7 +66,8 @@ public class SecurityConfig {
                     "/login", "/doLogin", "/signup", "/access-denied",
                     "/css/**", "/js/**", "/images/**", "/files/**",
                     "/event-images/**", "/verify-otp", "/resend-otp",
-                    "/forgot-password", "/reset-password", "/verify-otp-reset"
+                    "/forgot-password", "/reset-password", "/verify-otp-reset",
+                    "/actuator/health"
                 ).permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/organizer/**").hasRole("ORGANIZER") // A general rule for all organizer pages
