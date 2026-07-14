@@ -27,7 +27,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'awsNexus-artifactory', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
                     sh """
                     mkdir -p target
-                    curl -v -u "\${NEXUS_USER}:\${NEXUS_PASS}" -o target/ebs-app.jar ${NEXUS_URL}
+                    curl -f -v -u "\${NEXUS_USER}:\${NEXUS_PASS}" -o target/ebs-app.jar ${NEXUS_URL}
                     """
                 }
             }
