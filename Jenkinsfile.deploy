@@ -9,7 +9,7 @@ pipeline {
         REGISTRY = 'harbor.registry.local'
         IMAGE_NAME = 'ebs-app'
         IMAGE_TAG = "${params.UPSTREAM_BUILD_NUMBER}"
-        NEXUS_URL = "http://34.207.235.78:8081/repository/ebs-app-repo/QA/ebs-app/${params.UPSTREAM_BUILD_NUMBER}/ebs-app-${params.UPSTREAM_BUILD_NUMBER}.jar"
+        NEXUS_URL = "http://52.200.248.107:8081/repository/ebs-app-repo/QA/ebs-app/${params.UPSTREAM_BUILD_NUMBER}/ebs-app-${params.UPSTREAM_BUILD_NUMBER}.jar"
     }
 
     stages {
